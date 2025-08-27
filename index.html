@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>École Notre-Dame des Grâces - Gestion des Présences</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="container">
+                <div class="flex flex-col items-center justify-center">
+                    <h1>École Notre-Dame des Grâces</h1>
+                    <p>Gestion des présences - Année scolaire 2025-2026</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav">
+            <div class="container">
+                <div class="nav-tabs justify-center">
+                    <button class="nav-tab active" data-tab="attendance">
+                        <span class="nav-icon">📍</span>
+                        Présences
+                    </button>
+                    <button class="nav-tab" data-tab="dashboard">
+                        <span class="nav-icon">🏠</span>
+                        Tableau de bord
+                    </button>
+                    <button class="nav-tab" data-tab="children">
+                        <span class="nav-icon">👶</span>
+                        Enfants
+                    </button>
+                    <button class="nav-tab" data-tab="history">
+                        <span class="nav-icon">📊</span>
+                        Historique
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main container">
+            <!-- Attendance Tab -->
+            <div class="tab-content active" id="attendance">
+                <div class="attendance-section">
+                    <div class="attendance-header">
+                        <h2>Enregistrement des présences</h2>
+                        <div class="date-selector">
+                            <label class="form-label">Date :</label>
+                            <input type="date" id="attendanceDate" class="form-control date-input">
+                            <div class="current-day-info" id="currentDayInfo"></div>
+                        </div>
+                    </div>
+
+                    <div class="child-selection">
+                        <label class="form-label">Sélectionner un enfant :</label>
+                        <select class="form-control" id="childSelect">
+                            <option value="">-- Choisir un enfant --</option>
+                        </select>
+                    </div>
+
+                    <div class="attendance-grid" id="attendanceGrid">
+                        <!-- Attendance options will be populated here -->
+                    </div>
+
+                    <div class="daily-summary" id="dailySummary">
+                        <!-- Daily cost summary -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Tab -->
+            <div class="tab-content" id="dashboard">
+                <div class="dashboard">
+                    <div class="dashboard-header">
+                        <h2>Tableau de bord</h2>
+                        <div class="current-date"></div>
+                    </div>
+                    
+                    <div class="cost-summary">
+                        <div class="cost-card">
+                            <h3>Coût aujourd'hui</h3>
+                            <div class="cost-amount" id="dailyCost">0,00 €</div>
+                        </div>
+                        <div class="cost-card">
+                            <h3>Coût ce mois</h3>
+                            <div class="cost-amount" id="monthlyCost">0,00 €</div>
+                        </div>
+                    </div>
+
+                    <div class="children-status" id="childrenStatus">
+                        <!-- Children status will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Children Tab -->
+            <div class="tab-content" id="children">
+                <div class="children-section">
+                    <h2>Configuration des enfants</h2>
+                    
+                    <div class="add-child-form">
+                        <h3>Ajouter un enfant</h3>
+                        <form id="addChildForm">
+                            <div class="form-group">
+                                <label class="form-label">Nom de l'enfant</label>
+                                <input type="text" class="form-control" id="childName" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Classe</label>
+                                <input type="text" class="form-control" id="childClass" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Niveau</label>
+                                <select class="form-control" id="childLevel" required>
+                                    <option value="">-- Choisir --</option>
+                                    <option value="maternelle">Maternelle</option>
+                                    <option value="primaire">Primaire</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">QR Code (image)</label>
+                                <input type="file" class="form-control" id="childQRCode" accept="image/*">
+                            </div>
+                            <button type="submit" class="btn btn--primary">Ajouter l'enfant</button>
+                        </form>
+                    </div>
+
+                    <div class="children-list">
+                        <h3>Enfants configurés</h3>
+                        <div id="childrenList">
+                            <!-- Children list will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Tab -->
+            <div class="tab-content" id="history">
+                <div class="history-section">
+                    <h2>Historique et rapports</h2>
+                    
+                    <div class="history-controls">
+                        <div class="form-group">
+                            <label class="form-label">Mois à afficher</label>
+                            <select class="form-control" id="monthSelect">
+                                <!-- Options will be populated -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="monthly-summary">
+                        <div class="summary-cards">
+                            <div class="summary-card">
+                                <h4>Coût calculé</h4>
+                                <div class="summary-amount" id="calculatedCost">0,00 €</div>
+                            </div>
+                            <div class="summary-card">
+                                <h4>Facture Dynamix</h4>
+                                <div class="invoice-input">
+                                    <input type="number" class="form-control" id="invoiceAmount" step="0.01" placeholder="0,00">
+                                    <span>€</span>
+                                </div>
+                            </div>
+                            <div class="summary-card">
+                                <h4>Différence</h4>
+                                <div class="summary-amount" id="difference">0,00 €</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="calendar-view" id="calendarView">
+                        <!-- Calendar will be populated here -->
+                    </div>
+
+                    <div class="export-actions">
+                        <button class="btn btn--secondary" id="exportBtn">Exporter en CSV</button>
+                        <button class="btn btn--outline" id="resetDataBtn">Réinitialiser les données</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Notifications -->
+        <div class="notifications" id="notifications"></div>
+
+        <!-- Confirmation Modal -->
+        <div class="modal hidden" id="confirmModal">
+            <div class="modal-content">
+                <h3 id="confirmTitle">Confirmation</h3>
+                <p id="confirmMessage">Êtes-vous sûr de vouloir effectuer cette action ?</p>
+                <div class="modal-actions">
+                    <button class="btn btn--secondary" id="confirmCancel">Annuler</button>
+                    <button class="btn btn--primary" id="confirmOk">Confirmer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
