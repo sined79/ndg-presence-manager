@@ -1,9 +1,97 @@
 class SchoolAttendanceApp {
+
+    initPWA() {
+        // Enregistrement du service worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then((registration) => {
+                        console.log('SW enregistré avec succès:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.log('Échec d\'enregistrement SW:', error);
+                    });
+            });
+        }
+
+        // Variable pour tracker si PWA est disponible
+        this.pwaAvailable = false;
+        
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('PWA installation disponible');
+            e.preventDefault();
+            this.pwaAvailable = true;
+            this.deferredPrompt = e;
+            this.showInstallButton();
+        });
+
+        // Vérifier après un délai si PWA est disponible
+        setTimeout(() => {
+            if (!this.pwaAvailable) {
+                console.log('PWA non disponible - masquage du bouton');
+                this.hideInstallButton();
+            }
+        }, 2000);
+
+        window.addEventListener('appinstalled', () => {
+            console.log('PWA installée avec succès');
+            this.pwaAvailable = false;
+            this.hideInstallButton();
+            this.showNotification('Application installée avec succès !', 'success');
+        });
+    }
+
+    showInstallButton() {
+        // Ne crée le bouton que si PWA est vraiment disponible
+        if (!document.getElementById('installBtn') && this.pwaAvailable) {
+            console.log('Création du bouton d\'installation PWA');
+            const installBtn = document.createElement('button');
+            installBtn.id = 'installBtn';
+            installBtn.className = 'btn btn--primary install-btn';
+            installBtn.innerHTML = '📱 Installer l\'app';
+            installBtn.addEventListener('click', this.promptInstall.bind(this));
+            
+            document.body.appendChild(installBtn);
+        }
+    }
+
+    hideInstallButton() {
+        const installBtn = document.getElementById('installBtn');
+        if (installBtn) {
+            console.log('Suppression du bouton d\'installation PWA');
+            installBtn.remove();
+        }
+    }
+
+
+    promptInstall() {
+        console.log('Prompt d\'installation PWA');
+        console.log('deferredPrompt disponible:', !!this.deferredPrompt); // Debug
+        
+        if (this.deferredPrompt) { // Utiliser this.deferredPrompt au lieu de window.deferredPrompt
+            this.deferredPrompt.prompt();
+            this.deferredPrompt.userChoice.then((choiceResult) => {
+                console.log('Choix utilisateur:', choiceResult.outcome);
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('Installation acceptée');
+                }
+                this.deferredPrompt = null; // Nettoyer après utilisation
+            });
+        } else {
+            console.log('deferredPrompt non disponible - PWA peut-être déjà installée');
+            this.showNotification('L\'application est peut-être déjà installée', 'info');
+        }
+    }
+
+
+
     constructor() {
         this.data = {
             children: [],
             attendance: {}
         };
+        this.deferredPrompt = null;
+        this.pwaAvailable = false; 
         
         // Tarifs from the provided data
         this.tariffs = {
@@ -57,6 +145,7 @@ class SchoolAttendanceApp {
         this.renderDashboard();
         this.renderChildren();
         this.renderHistory();
+        this.initPWA();
     }
 
     setupEventListeners() {
@@ -613,8 +702,8 @@ class SchoolAttendanceApp {
         }
 
         containerEl.innerHTML = this.data.children.map(child => `
-            <div class="child-card" onclick="app.toggleChildDetails('${child.id}')">
-                <div class="child-header">
+            <div class="child-card">
+                <div class="child-header" onclick="app.toggleChildDetails('${child.id}')">
                     <h4>${child.name}</h4>
                     <span class="child-info">${child.class} - ${child.level}</span>
                     ${child.qrCodeImage ? '<span class="qr-indicator">📱 QR</span>' : ''}
@@ -625,13 +714,16 @@ class SchoolAttendanceApp {
                             <img src="${child.qrCodeImage}" alt="QR Code ${child.name}" class="qr-code-image">
                         </div>
                     ` : '<p class="no-qr">Aucun QR Code configuré</p>'}
-                    <button class="btn btn--danger btn--small" onclick="event.stopPropagation(); app.removeChild('${child.id}')">
-                        Supprimer
-                    </button>
+                    <div class="child-actions">
+                        <button class="btn btn--danger btn--small" onclick="app.removeChild('${child.id}')">
+                            🗑️ Supprimer
+                        </button>
+                    </div>
                 </div>
             </div>
         `).join('');
     }
+
 
     toggleChildDetails(childId) {
         const detailsEl = document.getElementById(`details-${childId}`);

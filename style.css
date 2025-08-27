@@ -1531,3 +1531,113 @@ select.form-control {
     border-color: #007bff;
     background: #f0f8ff;
 }
+
+.install-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    border-radius: 25px;
+    padding: 12px 20px;
+    box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.install-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,123,255,0.4);
+}
+
+
+.child-header {
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 8px;
+    transition: background-color 0.2s ease;
+}
+
+.child-header:hover {
+    background-color: #f8f9fa;
+}
+
+.child-header:active {
+    background-color: #e9ecef;
+}
+
+.child-actions {
+    padding: 10px 0;
+    text-align: center;
+    border-top: 1px solid #eee;
+    margin-top: 10px;
+}
+
+.child-actions .btn {
+    min-height: 44px; /* Taille minimale tactile */
+    min-width: 120px;
+    font-size: 16px; /* Améliore la lisibilité sur mobile */
+}
+
+/* Amélioration pour mobile */
+@media (max-width: 768px) {
+    .child-card {
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .child-header {
+        padding: 15px;
+    }
+    
+    .child-header h4 {
+        margin: 0 0 5px 0;
+        font-size: 18px;
+    }
+    
+    .child-info {
+        font-size: 14px;
+    }
+    
+    .qr-indicator {
+        font-size: 12px;
+        padding: 4px 8px;
+    }
+    
+    .child-actions .btn {
+        width: 100%;
+        max-width: 200px;
+    }
+}
+
+/* Style pour le bouton d'installation PWA */
+.install-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    border-radius: 25px;
+    padding: 12px 20px;
+    box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+    display: none; /* Caché par défaut */
+}
+
+.install-btn.show {
+    display: block;
+    animation: slideInUp 0.3s ease;
+}
+
+@keyframes slideInUp {
+    from {
+        transform: translateY(100px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
