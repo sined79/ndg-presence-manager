@@ -625,7 +625,7 @@ class SchoolAttendanceApp {
                             <img src="${child.qrCodeImage}" alt="QR Code ${child.name}" class="qr-code-image">
                         </div>
                     ` : '<p class="no-qr">Aucun QR Code configuré</p>'}
-                    <button class="btn btn--danger btn--small" onclick="event.stopPropagation(); app.deleteChild('${child.id}')">
+                    <button class="btn btn--danger btn--small" onclick="event.stopPropagation(); app.removeChild('${child.id}')">
                         Supprimer
                     </button>
                 </div>

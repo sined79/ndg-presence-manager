@@ -861,8 +861,10 @@ select.form-control {
   font-weight: var(--font-weight-medium);
 }
 
-.child-selection {
-  margin-bottom: var(--space-24);
+.child-selection {  
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
 }
 
 .attendance-grid {

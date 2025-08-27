@@ -47,21 +47,25 @@
             <!-- Attendance Tab -->
             <div class="tab-content active" id="attendance">
                 <div class="attendance-section">
-                    <div class="attendance-header">
+                    <div class="dashboard-header">
                         <h2>Enregistrement des présences</h2>
+                    </div>
+                    <div class="attendance-header">                        
                         <div class="date-selector">
                             <label class="form-label">Date :</label>
                             <input type="date" id="attendanceDate" class="form-control date-input">
                             <div class="current-day-info" id="currentDayInfo"></div>
                         </div>
+                        <div class="child-selection">
+                            <label class="form-label">Sélectionner un enfant :</label>
+                            <select class="form-control" id="childSelect">
+                                <option value="">-- Choisir un enfant --</option>
+                            </select>
+                        </div>
+
                     </div>
 
-                    <div class="child-selection">
-                        <label class="form-label">Sélectionner un enfant :</label>
-                        <select class="form-control" id="childSelect">
-                            <option value="">-- Choisir un enfant --</option>
-                        </select>
-                    </div>
+                    
 
                     <div class="attendance-grid" id="attendanceGrid">
                         <!-- Attendance options will be populated here -->
@@ -101,7 +105,9 @@
             <!-- Children Tab -->
             <div class="tab-content" id="children">
                 <div class="children-section">
-                    <h2>Configuration des enfants</h2>
+                    <div class="dashboard-header">
+                        <h2>Configuration des enfants</h2>
+                    </div>
                     
                     <div class="children-list">
                         <h3>Enfants configurés</h3>
