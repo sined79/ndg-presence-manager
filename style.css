@@ -1136,6 +1136,7 @@ select.form-control {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   padding: var(--space-24);
+  margin-bottom: var(--space-32);
   border: 1px solid var(--color-card-border);
 }
 
@@ -1451,4 +1452,80 @@ select.form-control {
   justify-content: center;
   padding: var(--space-32);
   color: var(--color-text-secondary);
+}
+
+.child-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.child-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-color: #007bff;
+}
+
+.child-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.child-info {
+    color: #666;
+    font-size: 0.9em;
+}
+
+.qr-indicator {
+    background: #28a745;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-size: 0.8em;
+}
+
+.child-details {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #eee;
+}
+
+.qr-code-container {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.qr-code-image {
+    max-width: 200px;
+    max-height: 200px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.no-qr {
+    color: #999;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.btn--small {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.85em;
+}
+
+.form-group input[type="file"] {
+    padding: 0.5rem;
+    border: 2px dashed #ddd;
+    border-radius: 4px;
+    background: #f9f9f9;
+}
+
+.form-group input[type="file"]:hover {
+    border-color: #007bff;
+    background: #f0f8ff;
 }

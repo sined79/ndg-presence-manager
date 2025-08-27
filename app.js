@@ -501,34 +501,72 @@ class SchoolAttendanceApp {
     }
 
     addChild() {
-        const name = document.getElementById('childName').value.trim();
-        const childClass = document.getElementById('childClass').value.trim();
-        const level = document.getElementById('childLevel').value;
+        const nameEl = document.getElementById('childName');
+        const classEl = document.getElementById('childClass');
+        const levelEl = document.getElementById('childLevel');
+        const qrCodeEl = document.getElementById('childQRCode');
 
-        if (!name || !childClass || !level) {
+        if (!nameEl?.value || !classEl?.value || !levelEl?.value) {
             this.showNotification('Veuillez remplir tous les champs obligatoires', 'error');
             return;
         }
 
+        // Handle QR Code image
+        const file = qrCodeEl.files[0];
+        if (file) {
+            // Check file size (max 1MB for localStorage)
+            if (file.size > 1024 * 1024) {
+                this.showNotification('L\'image est trop volumineuse (max 1MB)', 'error');
+                return;
+            }
+
+            // Convert image to base64
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                this.createChildWithQRCode({
+                    name: nameEl.value,
+                    class: classEl.value,
+                    level: levelEl.value,
+                    qrCodeImage: e.target.result
+                });
+            };
+            reader.onerror = () => {
+                this.showNotification('Erreur lors de la lecture de l\'image', 'error');
+            };
+            reader.readAsDataURL(file);
+        } else {
+            // No QR code image
+            this.createChildWithQRCode({
+                name: nameEl.value,
+                class: classEl.value,
+                level: levelEl.value,
+                qrCodeImage: null
+            });
+        }
+    }
+
+    createChildWithQRCode(childData) {
         const child = {
             id: Date.now().toString(),
-            name,
-            class: childClass,
-            level
+            name: childData.name,
+            class: childData.class,
+            level: childData.level,
+            qrCodeImage: childData.qrCodeImage
         };
 
         this.data.children.push(child);
         this.saveData();
         
-        // Reset form
+        // Clear form
         document.getElementById('addChildForm').reset();
         
-        // Update all relevant displays
+        // Update displays
         this.renderChildren();
-        this.renderDashboard();
-        this.updateChildSelect(); // Make sure to update the child select dropdown
-        this.showNotification(`${name} a été ajouté avec succès`);
+        this.renderAttendance();
+        
+        this.showNotification(`${child.name} ajouté avec succès !`, 'success');
     }
+
 
     removeChild(childId) {
         this.confirmAction('Supprimer cet enfant',
@@ -564,34 +602,51 @@ class SchoolAttendanceApp {
     renderChildren() {
         const containerEl = document.getElementById('childrenList');
         if (!containerEl) return;
-        
+
         if (this.data.children.length === 0) {
             containerEl.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-icon">👶</div>
                     <p>Aucun enfant configuré. Utilisez le formulaire ci-dessus pour ajouter vos enfants.</p>
                 </div>
             `;
             return;
         }
 
-        const childrenHTML = this.data.children.map(child => `
-            <div class="child-item">
-                <div class="child-details">
+        containerEl.innerHTML = this.data.children.map(child => `
+            <div class="child-card" onclick="app.toggleChildDetails('${child.id}')">
+                <div class="child-header">
                     <h4>${child.name}</h4>
-                    <p>${child.class} - ${child.level}</p>
-                    ${child.qrCodeImage ? `<img src="${child.qrCodeImage}" alt="QR Code de ${child.name}" style="max-width: 100px; max-height: 100px; margin-top: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm);" />` : ''}
+                    <span class="child-info">${child.class} - ${child.level}</span>
+                    ${child.qrCodeImage ? '<span class="qr-indicator">📱 QR</span>' : ''}
                 </div>
-                <div class="child-actions">
-                    <button class="btn btn--sm btn--outline" onclick="app.removeChild('${child.id}')">
+                <div class="child-details" id="details-${child.id}" style="display: none;">
+                    ${child.qrCodeImage ? `
+                        <div class="qr-code-container">
+                            <img src="${child.qrCodeImage}" alt="QR Code ${child.name}" class="qr-code-image">
+                        </div>
+                    ` : '<p class="no-qr">Aucun QR Code configuré</p>'}
+                    <button class="btn btn--danger btn--small" onclick="event.stopPropagation(); app.deleteChild('${child.id}')">
                         Supprimer
                     </button>
                 </div>
             </div>
         `).join('');
-
-        containerEl.innerHTML = childrenHTML;
     }
+
+    toggleChildDetails(childId) {
+        const detailsEl = document.getElementById(`details-${childId}`);
+        if (detailsEl) {
+            const isVisible = detailsEl.style.display !== 'none';
+            // Hide all other details first
+            document.querySelectorAll('.child-details').forEach(el => {
+                el.style.display = 'none';
+            });
+            // Toggle current one
+            detailsEl.style.display = isVisible ? 'none' : 'block';
+        }
+    }
+
+
 
     renderHistory() {
         this.populateMonthSelect();
