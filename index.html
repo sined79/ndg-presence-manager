@@ -11,7 +11,7 @@
 
     <!-- Meta tags pour PWA -->
     <meta name="theme-color" content="#007bff">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="NDG Présences">
 
@@ -30,6 +30,8 @@
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16x16.png">
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 </head>
 <body>
     <div class="app">
@@ -47,13 +49,13 @@
         <nav class="nav">
             <div class="container">
                 <div class="nav-tabs justify-center">
-                    <button class="nav-tab active" data-tab="attendance">
-                        <span class="nav-icon">📍</span>
-                        Présences
-                    </button>
-                    <button class="nav-tab" data-tab="dashboard">
+                    <button class="nav-tab active" data-tab="dashboard">
                         <span class="nav-icon">🏠</span>
                         Tableau de bord
+                    </button>
+                    <button class="nav-tab" data-tab="attendance">
+                        <span class="nav-icon">📍</span>
+                        Présences
                     </button>
                     <button class="nav-tab" data-tab="children">
                         <span class="nav-icon">👶</span>
@@ -63,14 +65,56 @@
                         <span class="nav-icon">📊</span>
                         Historique
                     </button>
+                    <button class="nav-tab" data-tab="settings">
+                        <span class="nav-icon">⚙️</span>
+                        Réglages
+                    </button>
                 </div>
             </div>
         </nav>
 
         <!-- Main Content -->
         <main class="main container">
+            
+
+            <!-- Dashboard Tab -->
+            <div class="tab-content active" id="dashboard">
+
+                <div id="emptyChildrenState" class="empty-state hidden">
+                    <div class="empty-icon">👶</div>
+                    <h3>Commencez par ajouter vos enfants</h3>
+                    <p>Pour utiliser l'application, vous devez d'abord configurer vos enfants.</p>
+                    <button onclick="app.switchTab('children')" class="btn btn--primary btn--lg">
+                        ➕ Ajouter mes enfants
+                    </button>
+                </div>
+
+                <div id="normalDashboardContent" class="dashboard">
+                    
+                    <div class="dashboard-header">
+                        <h2>Tableau de bord</h2>
+                        <div class="current-date"></div>
+                    </div>
+                    
+                    <div class="cost-summary">
+                        <div class="cost-card">
+                            <h3>Coût aujourd'hui</h3>
+                            <div class="cost-amount" id="dailyCost">0,00 €</div>
+                        </div>
+                        <div class="cost-card">
+                            <h3>Coût ce mois</h3>
+                            <div class="cost-amount" id="monthlyCost">0,00 €</div>
+                        </div>
+                    </div>
+
+                    <div class="children-status" id="childrenStatus">
+                        <!-- Children status will be populated here -->
+                    </div>
+                </div>
+            </div>
+
             <!-- Attendance Tab -->
-            <div class="tab-content active" id="attendance">
+            <div class="tab-content" id="attendance">
                 <div class="attendance-section">
                     <div class="dashboard-header">
                         <h2>Enregistrement des présences</h2>
@@ -102,31 +146,6 @@
                 </div>
             </div>
 
-            <!-- Dashboard Tab -->
-            <div class="tab-content" id="dashboard">
-                <div class="dashboard">
-                    <div class="dashboard-header">
-                        <h2>Tableau de bord</h2>
-                        <div class="current-date"></div>
-                    </div>
-                    
-                    <div class="cost-summary">
-                        <div class="cost-card">
-                            <h3>Coût aujourd'hui</h3>
-                            <div class="cost-amount" id="dailyCost">0,00 €</div>
-                        </div>
-                        <div class="cost-card">
-                            <h3>Coût ce mois</h3>
-                            <div class="cost-amount" id="monthlyCost">0,00 €</div>
-                        </div>
-                    </div>
-
-                    <div class="children-status" id="childrenStatus">
-                        <!-- Children status will be populated here -->
-                    </div>
-                </div>
-            </div>
-
             <!-- Children Tab -->
             <div class="tab-content" id="children">
                 <div class="children-section">
@@ -135,14 +154,14 @@
                     </div>
                     
                     <div class="children-list">
-                        <h3>Enfants configurés</h3>
+                        <h3 class="dashboard-header">Enfants configurés</h3>
                         <div id="childrenList">
                             <!-- Children list will be populated here -->
                         </div>
                     </div>
                     
                     <div class="add-child-form">
-                        <h3>Ajouter un enfant</h3>
+                        <h3 class="dashboard-header">Ajouter un enfant</h3>
                         <form id="addChildForm">
                             <div class="form-group">
                                 <label class="form-label">Nom de l'enfant</label>
@@ -174,7 +193,7 @@
             <!-- History Tab -->
             <div class="tab-content" id="history">
                 <div class="history-section">
-                    <h2>Historique et rapports</h2>
+                    <h2 class="dashboard-header">Historique et rapports</h2>
                     
                     <div class="history-controls">
                         <div class="form-group">
@@ -215,6 +234,91 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Setting Tab -->
+            <div class="tab-content" id="settings">
+                <!-- Section Synchronisation Cloud (réutilise vos classes existantes) -->
+                <div class="card">
+                    <div class="card__body">
+                        <h2 class="dashboard-header">🔄 Synchronisation Cloud</h2>
+                        
+                        <!-- Statut de la synchronisation -->
+                        <div class="sync-status" id="syncStatus">
+                            <span class="status-indicator" id="statusIndicator">⭕</span>
+                            <span class="status--info" id="statusText">Non configuré</span>
+                        </div>
+                        
+                        <!-- Formulaire de configuration -->
+                        <form id="syncConfigForm" class="form">
+                            <div class="form-group">
+                                <label for="supabaseUrl" class="form-label">URL du projet Supabase</label>
+                                <input 
+                                    type="url" 
+                                    id="supabaseUrl" 
+                                    placeholder="https://votre-projet.supabase.co" 
+                                    class="form-control">
+                                <small class="form-help">Trouvez cette URL dans Settings → API de votre projet Supabase</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="supabaseKey" class="form-label">Service Role Key</label>
+                                <input 
+                                    type="password" 
+                                    id="supabaseKey" 
+                                    placeholder="eyJ..." 
+                                    class="form-control">
+                                <small class="form-help">⚠️ Utilisez la Service Role Key (pas l'anon key)</small>
+                            </div>
+                            
+                            <!-- NOUVEAU CHAMP -->
+                            <div class="form-group">
+                                <label for="fileName" class="form-label">Nom du fichier de données</label>
+                                <input 
+                                    type="text" 
+                                    id="fileName" 
+                                    placeholder="mes-donnees.json" 
+                                    class="form-control"
+                                    value="attendance-data.json">
+                                <small class="form-help">💡 Utilisez un nom unique si vous partagez le compte (ex: marie-donnees.json)</small>
+                            </div>
+                            
+                            <div class="flex gap-8">
+                                <button type="submit" class="btn btn--primary">
+                                    Configurer la synchronisation
+                                </button>
+                                <button 
+                                    type="button" 
+                                    id="disconnectSync" 
+                                    class="btn btn--secondary" 
+                                    style="display: none;">
+                                    Déconnecter
+                                </button>
+                            </div>
+                        </form>
+
+                        
+                        <!-- Actions de synchronisation -->
+                        <div class="sync-actions" id="syncActions" style="display: none;">
+                            <div class="flex gap-8 mb-8">
+                                <button id="backupBtn" class="btn btn--primary">
+                                    📤 Sauvegarder
+                                </button>
+                                <button id="restoreBtn" class="btn btn--secondary">
+                                    📥 Restaurer
+                                </button>
+                            </div>
+                            
+                            <div class="sync-info">
+                                <small class="text-secondary">
+                                    Dernière sauvegarde : <span id="lastBackup">Jamais</span>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
         </main>
 
         <!-- Notifications -->

@@ -1641,3 +1641,87 @@ select.form-control {
         opacity: 1;
     }
 }
+
+/* Masquer les weekends sur mobile */
+@media (max-width: 768px) {
+    .calendar-day.weekend,
+    .calendar-header.weekend {
+        display: none;
+    }
+    
+    /* Ajuster la grille pour 5 colonnes au lieu de 7 sur mobile */
+    .calendar-grid {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+
+
+/* 
+
+.settings-section {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: #f9f9f9;
+}
+
+.sync-config {
+    max-width: 500px;
+}
+
+.sync-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    background: white;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.status-indicator {
+    font-size: 1.2rem;
+}
+
+.sync-status.connected .status-indicator {
+    color: #4CAF50;
+}
+
+.sync-status.error .status-indicator {
+    color: #f44336;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 0.25rem;
+    color: #666;
+    font-size: 0.8rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.sync-actions {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e0e0e0;
+}
+
+.sync-actions button {
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.sync-info {
+    margin-top: 1rem;
+    color: #666;
+} */

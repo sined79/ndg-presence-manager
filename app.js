@@ -1,68 +1,61 @@
 class SchoolAttendanceApp {
 
     initPWA() {
-        // Enregistrement du service worker
+        // Détection mobile plus robuste
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                        (navigator.maxTouchPoints && navigator.maxTouchPoints > 2 && /MacIntel/.test(navigator.platform));
+        
+        if (!isMobile) {
+            console.log('PWA: Desktop détecté, pas de bouton d\'installation');
+            return;
+        }
+
+        // Service worker...
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
                     .then((registration) => {
-                        console.log('SW enregistré avec succès:', registration.scope);
+                        console.log('SW enregistré:', registration.scope);
                     })
                     .catch((error) => {
-                        console.log('Échec d\'enregistrement SW:', error);
+                        console.log('Échec SW:', error);
                     });
             });
         }
 
-        // Variable pour tracker si PWA est disponible
-        this.pwaAvailable = false;
-        
         window.addEventListener('beforeinstallprompt', (e) => {
-            console.log('PWA installation disponible');
+            console.log('PWA: beforeinstallprompt détecté sur mobile');
             e.preventDefault();
-            this.pwaAvailable = true;
             this.deferredPrompt = e;
             this.showInstallButton();
         });
 
-        // Vérifier après un délai si PWA est disponible
+        // Force l'affichage du bouton après un délai sur mobile si PWA possible
         setTimeout(() => {
-            if (!this.pwaAvailable) {
-                console.log('PWA non disponible - masquage du bouton');
-                this.hideInstallButton();
+            if (this.deferredPrompt || this.isPWAInstallable()) {
+                this.showInstallButton();
             }
-        }, 2000);
+        }, 3000);
+    }
 
-        window.addEventListener('appinstalled', () => {
-            console.log('PWA installée avec succès');
-            this.pwaAvailable = false;
-            this.hideInstallButton();
-            this.showNotification('Application installée avec succès !', 'success');
-        });
+    isPWAInstallable() {
+        // Vérifications supplémentaires pour PWA
+        return 'serviceWorker' in navigator && 
+            window.matchMedia('(display-mode: browser)').matches &&
+            !window.matchMedia('(display-mode: standalone)').matches;
     }
 
     showInstallButton() {
-        // Ne crée le bouton que si PWA est vraiment disponible
-        if (!document.getElementById('installBtn') && this.pwaAvailable) {
-            console.log('Création du bouton d\'installation PWA');
+        if (!document.getElementById('installBtn')) {
             const installBtn = document.createElement('button');
             installBtn.id = 'installBtn';
-            installBtn.className = 'btn btn--primary install-btn';
+            installBtn.className = 'btn btn--primary install-btn show';
             installBtn.innerHTML = '📱 Installer l\'app';
             installBtn.addEventListener('click', this.promptInstall.bind(this));
-            
             document.body.appendChild(installBtn);
+            console.log('Bouton PWA affiché');
         }
     }
-
-    hideInstallButton() {
-        const installBtn = document.getElementById('installBtn');
-        if (installBtn) {
-            console.log('Suppression du bouton d\'installation PWA');
-            installBtn.remove();
-        }
-    }
-
 
     promptInstall() {
         console.log('Prompt d\'installation PWA');
@@ -126,13 +119,15 @@ class SchoolAttendanceApp {
         
         this.currentChild = null;
         this.currentDate = this.formatDate(new Date());
-        this.currentTab = 'attendance';
+        this.currentTab = 'dashboard';
         this.pendingAction = null;
         
         // School year limits
         this.schoolYearStart = new Date('2025-08-01');
         this.schoolYearEnd = new Date('2026-07-31');
         
+        this.supabaseSync = null;
+
         this.init();
     }
 
@@ -146,6 +141,9 @@ class SchoolAttendanceApp {
         this.renderChildren();
         this.renderHistory();
         this.initPWA();
+        setTimeout(() => {
+            this.supabaseSync = new SupabaseSync(this);
+        }, 100);
     }
 
     setupEventListeners() {
@@ -256,6 +254,14 @@ class SchoolAttendanceApp {
     saveData() {
         try {
             localStorage.setItem('ndg-attendance-data', JSON.stringify(this.data));
+            // Sauvegarde automatique vers Supabase si configuré
+            if (this.supabaseSync && this.supabaseSync.isConfigured()) {
+                // Sauvegarde différée pour éviter trop d'appels
+                clearTimeout(this.autoBackupTimeout);
+                this.autoBackupTimeout = setTimeout(() => {
+                    this.supabaseSync.backup().catch(console.error);
+                }, 5000); // 5 secondes après la dernière modification
+            }
         } catch (error) {
             console.error('Error saving data:', error);
             this.showNotification('Erreur lors de la sauvegarde', 'error');
@@ -304,11 +310,11 @@ class SchoolAttendanceApp {
 
         // Refresh content based on tab
         switch(tabName) {
-            case 'attendance':
-                this.renderAttendance();
-                break;
             case 'dashboard':
                 this.renderDashboard();
+                break;
+            case 'attendance':
+                this.renderAttendance();
                 break;
             case 'children':
                 this.renderChildren();
@@ -474,12 +480,39 @@ class SchoolAttendanceApp {
             // For non-exclusive groups (Midi), toggle individual options
             if (isCurrentlySelected) {
                 delete childAttendance[optionKey];
+                
+                // LOGIQUE INVERSE : Si on décoche le temps de midi (12:05-13:30) et que le repas chaud est coché, on décoche aussi le repas
+                if (groupName === 'Midi' && optionKey === '12:05-13:30') {
+                    if (childAttendance['repas_chaud']) {
+                        delete childAttendance['repas_chaud'];
+                        this.showNotification('Repas chaud retiré automatiquement (plus de temps de midi)', 'info');
+                    }
+                }
+                
             } else {
                 childAttendance[optionKey] = {
                     type: description,
                     cost: cost,
                     timestamp: new Date().toISOString()
                 };
+                
+                // AUTO-SÉLECTION : Si on sélectionne le repas chaud, auto-cocher le temps de midi
+                if (groupName === 'Midi' && optionKey === 'repas_chaud') {
+                    const midiTimeSlot = '12:05-13:30';
+                    if (!childAttendance[midiTimeSlot]) {
+                        const date = new Date(this.currentDate);
+                        const dayType = this.getDayType(date);
+                        const midiTariff = this.tariffs[dayType]['Midi'][midiTimeSlot];
+                        
+                        childAttendance[midiTimeSlot] = {
+                            type: midiTariff.type,
+                            cost: midiTariff.tarif,
+                            timestamp: new Date().toISOString()
+                        };
+                        
+                        this.showNotification('Temps de midi ajouté automatiquement avec le repas', 'info');
+                    }
+                }
             }
         }
 
@@ -488,6 +521,7 @@ class SchoolAttendanceApp {
         this.updateDailySummary();
         this.renderDashboard();
     }
+
 
     updateDailySummary() {
         const summaryEl = document.getElementById('dailySummary');
@@ -534,8 +568,19 @@ class SchoolAttendanceApp {
     }
 
     renderDashboard() {
-        this.updateCostSummary();
-        this.renderChildrenStatus();
+        const emptyState = document.getElementById('emptyChildrenState');
+        const normalContent = document.getElementById('normalDashboardContent');
+        if (this.data.children.length === 0) {
+            // Afficher le message vide, masquer le contenu normal
+            emptyState.classList.remove('hidden');
+            normalContent.classList.add('hidden');
+        } else {
+            // Masquer le message vide, afficher le contenu normal
+            emptyState.classList.add('hidden');
+            normalContent.classList.remove('hidden');
+            this.updateCostSummary();
+            this.renderChildrenStatus();
+        }
     }
 
     updateCostSummary() {
@@ -584,7 +629,9 @@ class SchoolAttendanceApp {
         }).join('');
 
         containerEl.innerHTML = `
+            <div class="dashboard-header">
             <h3>État des enfants (${new Date(this.currentDate).toLocaleDateString('fr-FR')})</h3>
+            </div>
             ${statusHTML}
         `;
     }
@@ -652,6 +699,9 @@ class SchoolAttendanceApp {
         // Update displays
         this.renderChildren();
         this.renderAttendance();
+        console.log('Child added:', child);
+        this.renderDashboard();
+        console.log('Dashboard updated after adding child');
         
         this.showNotification(`${child.name} ajouté avec succès !`, 'success');
     }
@@ -779,20 +829,28 @@ class SchoolAttendanceApp {
         
         const monthName = date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
         const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
-        const firstDayOfWeek = new Date(parseInt(year), parseInt(month) - 1, 1).getDay();
+        
+        // Convertir getDay() pour que lundi = 0 au lieu de dimanche = 0
+        const firstDayOfWeekJS = new Date(parseInt(year), parseInt(month) - 1, 1).getDay();
+        const firstDayOfWeek = (firstDayOfWeekJS + 6) % 7; // 0=Lun, 1=Mar, ..., 6=Dim
+        
         const today = new Date();
         
-        const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+        // Ordre européen : Lundi en premier
+        const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
         
         let calendarHTML = `
             <h4>Calendrier - ${monthName}</h4>
             <div class="calendar-grid">
-                ${dayNames.map(day => `<div class="calendar-header">${day}</div>`).join('')}
+                ${dayNames.map((day, index) => 
+                    `<div class="calendar-header ${index >= 5 ? 'weekend' : ''}">${day}</div>`
+                ).join('')}
         `;
 
         // Empty cells for days before the first day of the month
         for (let i = 0; i < firstDayOfWeek; i++) {
-            calendarHTML += '<div class="calendar-day"></div>';
+            const isWeekend = i >= 5; // Samedi (5) et Dimanche (6)
+            calendarHTML += `<div class="calendar-day ${isWeekend ? 'weekend' : ''}"></div>`;
         }
 
         // Days of the month
@@ -802,9 +860,13 @@ class SchoolAttendanceApp {
             const isToday = today.toDateString() === new Date(parseInt(year), parseInt(month) - 1, day).toDateString();
             const dayCost = this.calculateDayCost(dateKey);
             
+            // Calculer le jour de la semaine pour ce jour (0=Lun, 1=Mar, ..., 6=Dim)
+            const dayOfWeek = (firstDayOfWeek + day - 1) % 7;
+            const isWeekend = dayOfWeek >= 5; // Samedi (5) et Dimanche (6)
+            
             calendarHTML += `
-                <div class="calendar-day ${hasActivity ? 'has-activity' : ''} ${isToday ? 'today' : ''}" 
-                     onclick="app.showDayDetails('${dateKey}')">
+                <div class="calendar-day ${hasActivity ? 'has-activity' : ''} ${isToday ? 'today' : ''} ${isWeekend ? 'weekend' : ''}" 
+                    onclick="app.showDayDetails('${dateKey}')">
                     <div>${day}</div>
                     ${hasActivity ? `<small>${dayCost.toFixed(2)}€</small>` : ''}
                 </div>
@@ -814,6 +876,8 @@ class SchoolAttendanceApp {
         calendarHTML += '</div>';
         containerEl.innerHTML = calendarHTML;
     }
+
+
 
     updateMonthlySummary(monthKey) {
         const calculatedCost = this.calculateMonthlyCost(monthKey);
@@ -1028,6 +1092,335 @@ class SchoolAttendanceApp {
         }
     }
 }
+
+class SupabaseSync {
+    constructor(app) {
+        this.app = app;
+        this.supabase = null;
+        this.bucketName = 'user-data';
+        this.fileName = 'attendance-data.json';
+        this.init();
+    }
+
+    init() {
+        this.loadConfiguration();
+        this.setupEventListeners();
+        this.updateUI();
+    }
+
+    setupEventListeners() {
+        // Configuration
+        const form = document.getElementById('syncConfigForm');
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.configure();
+            });
+        }
+
+        // Actions
+        const disconnectBtn = document.getElementById('disconnectSync');
+        if (disconnectBtn) {
+            disconnectBtn.addEventListener('click', () => this.disconnect());
+        }
+
+        const backupBtn = document.getElementById('backupBtn');
+        if (backupBtn) {
+            backupBtn.addEventListener('click', () => this.backup());
+        }
+
+        const restoreBtn = document.getElementById('restoreBtn');
+        if (restoreBtn) {
+            restoreBtn.addEventListener('click', () => this.restore());
+        }
+    }
+
+    loadConfiguration() {
+        const url = localStorage.getItem('supabase_url');
+        const key = localStorage.getItem('supabase_key');
+        const fileName = localStorage.getItem('supabase_filename');
+        
+        if (url && key && window.supabase) {
+            try {
+                this.supabase = window.supabase.createClient(url, key);
+                
+                if (fileName) {
+                    this.fileName = fileName;
+                }
+                
+                this.updateUI('connected');
+            } catch (error) {
+                console.error('Erreur de configuration Supabase:', error);
+                this.updateUI('error', 'Configuration invalide');
+            }
+        }
+        
+        // Pré-remplir le champ fileName
+        const fileNameInput = document.getElementById('fileName');
+        if (fileNameInput && fileName) {
+            fileNameInput.value = fileName;
+        }
+    }
+
+    validateApiKey(key) {
+        const parts = key.split('.');
+        if (parts.length !== 3) {
+            throw new Error(`Clé invalide: ${parts.length} parties au lieu de 3`);
+        }
+        
+        try {
+            const payload = JSON.parse(atob(parts[1]));
+            if (payload.role !== 'service_role') {
+                throw new Error(`Rôle incorrect: ${payload.role}. Utilisez la Service Role Key.`);
+            }
+            return true;
+        } catch (e) {
+            throw new Error(`Format JWT invalide: ${e.message}`);
+        }
+    }
+
+    validateFileName(fileName) {
+        const cleanName = fileName.trim();
+        
+        if (!cleanName) {
+            throw new Error('Le nom de fichier ne peut pas être vide');
+        }
+        
+        if (!cleanName.endsWith('.json')) {
+            throw new Error('Le fichier doit avoir l\'extension .json');
+        }
+        
+        const validPattern = /^[a-zA-Z0-9._-]+\.json$/;
+        if (!validPattern.test(cleanName)) {
+            throw new Error('Nom de fichier invalide. Utilisez uniquement lettres, chiffres, tirets, underscores et points');
+        }
+        
+        return cleanName;
+    }
+
+    async configure() {
+        const urlInput = document.getElementById('supabaseUrl');
+        const keyInput = document.getElementById('supabaseKey');
+        const fileNameInput = document.getElementById('fileName');
+        
+        const url = urlInput.value.trim();
+        const key = keyInput.value.trim();
+        const fileName = fileNameInput.value.trim();
+
+        if (!url || !key || !fileName) {
+            this.app.showNotification('Veuillez remplir tous les champs', 'error');
+            return;
+        }
+
+        if (!window.supabase) {
+            this.app.showNotification('SDK Supabase non chargé', 'error');
+            return;
+        }
+
+        try {
+            this.validateApiKey(key);
+            const validFileName = this.validateFileName(fileName);
+            
+            const testClient = window.supabase.createClient(url, key);
+            const { data: buckets, error } = await testClient.storage.listBuckets();
+            
+            if (error) throw error;
+            
+            const bucketExists = buckets.find(b => b.name === this.bucketName);
+            if (!bucketExists) {
+                throw new Error(`Le bucket "${this.bucketName}" n'existe pas`);
+            }
+
+            localStorage.setItem('supabase_url', url);
+            localStorage.setItem('supabase_key', key);
+            localStorage.setItem('supabase_filename', validFileName);
+            
+            this.supabase = testClient;
+            this.fileName = validFileName;
+            this.updateUI('connected');
+            
+            urlInput.value = '';
+            keyInput.value = '';
+            
+            this.app.showNotification('Synchronisation configurée !', 'success');
+            
+            if (confirm('Sauvegarder vos données actuelles ?')) {
+                await this.backup();
+            }
+            
+        } catch (error) {
+            console.error('Erreur:', error);
+            this.app.showNotification(`Erreur: ${error.message}`, 'error');
+            this.updateUI('error', error.message);
+        }
+    }
+
+    disconnect() {
+        if (confirm('Déconnecter la synchronisation ?')) {
+            localStorage.removeItem('supabase_url');
+            localStorage.removeItem('supabase_key');
+            localStorage.removeItem('supabase_filename');
+            localStorage.removeItem('last_backup');
+            
+            this.supabase = null;
+            this.fileName = 'attendance-data.json';
+            this.updateUI('disconnected');
+            
+            const fileNameInput = document.getElementById('fileName');
+            if (fileNameInput) {
+                fileNameInput.value = 'attendance-data.json';
+            }
+            
+            this.app.showNotification('Synchronisation déconnectée', 'info');
+        }
+    }
+
+    async backup() {
+        if (!this.supabase) {
+            this.app.showNotification('Synchronisation non configurée', 'error');
+            return;
+        }
+
+        try {
+            const currentData = {
+                children: this.app.data.children,
+                attendance: this.app.data.attendance,
+                backupDate: new Date().toISOString(),
+                fileName: this.fileName
+            };
+
+            const jsonBlob = new Blob([JSON.stringify(currentData, null, 2)], {
+                type: 'application/json'
+            });
+
+            const { error } = await this.supabase.storage
+                .from(this.bucketName)
+                .upload(this.fileName, jsonBlob, {
+                    upsert: true,
+                    contentType: 'application/json'
+                });
+
+            if (error) throw error;
+
+            const backupTime = new Date().toLocaleString('fr-FR');
+            localStorage.setItem('last_backup', backupTime);
+            
+            this.updateLastBackupDisplay();
+            this.app.showNotification(`Données sauvegardées dans ${this.fileName} !`, 'success');
+            
+        } catch (error) {
+            console.error('Erreur sauvegarde:', error);
+            this.app.showNotification(`Erreur: ${error.message}`, 'error');
+        }
+    }
+
+    async restore() {
+        if (!this.supabase) {
+            this.app.showNotification('Synchronisation non configurée', 'error');
+            return;
+        }
+
+        if (!confirm(`Restaurer depuis ${this.fileName} ? Vos données actuelles seront remplacées.`)) {
+            return;
+        }
+
+        try {
+            const { data, error } = await this.supabase.storage
+                .from(this.bucketName)
+                .download(this.fileName);
+
+            if (error) {
+                if (error.message.includes('not found')) {
+                    this.app.showNotification(`Aucune sauvegarde trouvée pour ${this.fileName}`, 'info');
+                    return;
+                }
+                throw error;
+            }
+
+            const text = await data.text();
+            const cloudData = JSON.parse(text);
+
+            this.app.data.children = cloudData.children || [];
+            this.app.data.attendance = cloudData.attendance || {};
+            
+            this.app.saveData();
+            
+            this.app.renderChildren();
+            this.app.renderAttendance();
+            this.app.renderDashboard();
+            this.app.renderHistory();
+            
+            this.app.showNotification(`Données restaurées depuis ${this.fileName} !`, 'success');
+            
+        } catch (error) {
+            console.error('Erreur restoration:', error);
+            this.app.showNotification(`Erreur: ${error.message}`, 'error');
+        }
+    }
+
+    updateUI(status = 'disconnected', errorMessage = '') {
+        const statusEl = document.getElementById('syncStatus');
+        const indicatorEl = document.getElementById('statusIndicator');
+        const textEl = document.getElementById('statusText');
+        const actionsEl = document.getElementById('syncActions');
+        const disconnectBtn = document.getElementById('disconnectSync');
+        const form = document.getElementById('syncConfigForm');
+
+        if (!statusEl) return;
+
+        statusEl.className = 'sync-status';
+
+        switch (status) {
+            case 'connected':
+                statusEl.classList.add('connected');
+                indicatorEl.textContent = '✅';
+                textEl.textContent = `Synchronisation active (${this.fileName})`;
+                textEl.className = 'status--success';
+                
+                if (actionsEl) actionsEl.style.display = 'block';
+                if (disconnectBtn) disconnectBtn.style.display = 'inline-flex';
+                if (form) form.style.display = 'none';
+                
+                this.updateLastBackupDisplay();
+                break;
+                
+            case 'error':
+                statusEl.classList.add('error');
+                indicatorEl.textContent = '❌';
+                textEl.textContent = errorMessage || 'Erreur de configuration';
+                textEl.className = 'status--error';
+                
+                if (actionsEl) actionsEl.style.display = 'none';
+                if (disconnectBtn) disconnectBtn.style.display = 'none';
+                if (form) form.style.display = 'block';
+                break;
+                
+            default:
+                indicatorEl.textContent = '⭕';
+                textEl.textContent = 'Non configuré';
+                textEl.className = 'status--info';
+                
+                if (actionsEl) actionsEl.style.display = 'none';
+                if (disconnectBtn) disconnectBtn.style.display = 'none';
+                if (form) form.style.display = 'block';
+        }
+    }
+
+    updateLastBackupDisplay() {
+        const lastBackupEl = document.getElementById('lastBackup');
+        if (lastBackupEl) {
+            const lastBackup = localStorage.getItem('last_backup');
+            lastBackupEl.textContent = lastBackup || 'Jamais';
+        }
+    }
+
+    isConfigured() {
+        return this.supabase !== null;
+    }
+}
+
+
+
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
