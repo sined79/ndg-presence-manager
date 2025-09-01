@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ndg-presence-v2';
+const CACHE_NAME = 'ndg-presence-v3';
 
 // Installation
 self.addEventListener('install', (event) => {
