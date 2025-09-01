@@ -1552,6 +1552,8 @@ class SupabaseSync {
                 if (actionsEl) actionsEl.style.display = 'block';
                 if (disconnectBtn) disconnectBtn.style.display = 'inline-flex';
                 if (form) form.style.display = 'none';
+
+                console.log('Mise à jour de la date de la dernière sauvegarde');
                 
                 this.updateLastBackupDisplay();
 
@@ -1598,53 +1600,67 @@ class SupabaseSync {
 
     async updateLastBackupDisplay() {
         const lastBackupEl = document.getElementById('lastBackup');
+        const cloudLastBackupEl = document.getElementById('cloudLastBackup');
         if (!lastBackupEl) return;
 
         if (!this.supabase) {
             lastBackupEl.textContent = 'Non disponible';
             return;
         }
-
-        try {
-            // Priorité 1 : Date locale (synchronisée lors des backup/restore)
-            const localBackup = localStorage.getItem('last_backup');
-            
-            if (localBackup) {
-                // Si c'est déjà au format ISO, on l'utilise
-                let displayDate;
-                if (localBackup.includes('T') && localBackup.includes('Z')) {
-                    // Format ISO
-                    displayDate = new Date(localBackup);
-                } else {
-                    // Ancien format français, on essaie de le parser
-                    const isoString = this.parseFrenchDateToISO(localBackup);
-                    displayDate = isoString ? new Date(isoString) : null;
-                }
-                
-                if (displayDate && !isNaN(displayDate.getTime())) {
-                    const dateStr = displayDate.toLocaleString('fr-FR', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-                    
-                    lastBackupEl.innerHTML = `
-                        ${dateStr} 
-                        <small style="color: #666;">(sync)</small>
-                    `;
-                    return;
-                }
+        
+        const localBackup = localStorage.getItem('last_backup');
+        if (localBackup) {
+            // Si c'est déjà au format ISO, on l'utilise
+            let displayDate;
+            if (localBackup.includes('T') && localBackup.includes('Z')) {
+                // Format ISO
+                displayDate = new Date(localBackup);
             } else {
-                lastBackupEl.textContent = 'Jamais';
+                // Ancien format français, on essaie de le parser
+                const isoString = this.parseFrenchDateToISO(localBackup);
+                displayDate = isoString ? new Date(isoString) : null;
             }
-        } catch (error) {
-            console.error('Erreur mise à jour date:', error);
-            // Fallback sur localStorage en cas d'erreur
-            const localBackup = localStorage.getItem('last_backup');
-            lastBackupEl.textContent = localBackup || 'Erreur';
+            
+            if (displayDate && !isNaN(displayDate.getTime())) {
+                const dateStr = displayDate.toLocaleString('fr-FR', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                lastBackupEl.innerHTML = `
+                    ${dateStr} 
+                    <small style="color: #666;">(sync)</small>
+                `;
+                
+            }
+        } else {
+            lastBackupEl.textContent = 'Jamais';
         }
+
+        const cloudDate = await this.getCloudFileDate();
+    
+        if (cloudDate) {
+            
+            const dateStr = cloudDate.toLocaleString('fr-FR', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            cloudLastBackupEl.innerHTML = `
+                ${dateStr} 
+                <small style="color: #999;">(cloud)</small>
+            `;
+        } else {
+            cloudLastBackupEl.textContent = 'Jamais';
+        }
+
+        return;
     }
 
 
