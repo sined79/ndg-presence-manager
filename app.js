@@ -1462,6 +1462,7 @@ class SupabaseSync {
             localStorage.setItem('last_backup', backupTimeISO);
             
             this.updateLastBackupDisplay();
+            this.checkForConflicts();
             this.app.showNotification(`Données sauvegardées dans ${this.fileName} !`, 'success');
             
         } catch (error) {
@@ -1499,7 +1500,7 @@ class SupabaseSync {
             this.app.data.children = cloudData.children || [];
             this.app.data.attendance = cloudData.attendance || {};
             
-            this.app.saveData();
+            //this.app.saveData();
 
             const cloudFileDate = await this.getCloudFileDate();
             if (cloudFileDate) {
@@ -1512,6 +1513,7 @@ class SupabaseSync {
             this.app.renderHistory();
 
             this.updateLastBackupDisplay();
+            this.checkForConflicts();
             
             this.app.showNotification(`Données restaurées depuis ${this.fileName} !`, 'success');
             
@@ -1559,18 +1561,7 @@ class SupabaseSync {
 
                 // Vérifier les conflits potentiels
                 this.checkForConflicts().then(result => {
-                    const conflictEl = document.getElementById('conflictWarning');
-                    const messageEl = document.getElementById('conflictMessage');
                     
-                    if (result.hasConflict && conflictEl && messageEl) {
-                        console.log('Conflit détecté:', result);
-                        if (result.isCloudNewer) {
-                            messageEl.textContent = 'Une sauvegarde plus récente existe sur le cloud';
-                        } else {
-                            messageEl.textContent = 'Vos données locales sont plus récentes';
-                        }
-                        conflictEl.style.display = 'block';
-                    }
                 });
                 
                 break;
@@ -1715,16 +1706,28 @@ class SupabaseSync {
 
             const localDate = new Date(localBackupStr);
             const timeDiff = Math.abs(cloudDate.getTime() - localDate.getTime());
+
+            const conflictEl = document.getElementById('conflictWarning');
+            const messageEl = document.getElementById('conflictMessage');
             
             // Si plus de 5 minutes de différence, potentiel conflit
             console.log('Comparaison dates - Cloud:', cloudDate, 'Local:', localDate, 'Diff (ms):', timeDiff);
-            if (timeDiff > 5 * 60 * 1000) {
+            if (timeDiff > 1 * 60 * 1000) {
+                if (cloudDate > localDate) {
+                    messageEl.textContent = 'Une sauvegarde plus récente existe sur le cloud';
+                }
+                else {
+                    messageEl.textContent = 'Vos données locales sont plus récentes';
+                }
+                conflictEl.style.display = 'block';
                 return {
                     hasConflict: true,
                     cloudDate: cloudDate,
                     localDate: localDate,
                     isCloudNewer: cloudDate > localDate
                 };
+            } else {
+                conflictEl.style.display = 'none';
             }
             
             return { hasConflict: false };
