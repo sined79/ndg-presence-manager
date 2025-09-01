@@ -1656,72 +1656,90 @@ select.form-control {
 }
 
 
-/* 
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    justify-content: flex-end;
+}
 
-.settings-section {
-    margin: 2rem 0;
-    padding: 1.5rem;
-    border: 1px solid #e0e0e0;
+.btn--danger {
+    background: #dc3545;
+    color: white;
+}
+
+.btn--danger:hover {
+    background: #c82333;
+}
+
+.btn--secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn--secondary:hover {
+    background: #545b62;
+}
+
+#dayDetailsContent .child-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    border: 1px solid #ddd;
     border-radius: 8px;
-    background: #f9f9f9;
 }
 
-.sync-config {
-    max-width: 500px;
+#dayDetailsContent .child-name {
+    font-weight: bold;
+    font-size: 1.1em;
+    margin-bottom: 10px;
 }
 
-.sync-status {
+#dayDetailsContent .activity-item {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-    padding: 0.5rem;
-    background: white;
+    justify-content: space-between;
+    padding: 5px 0;
+}
+
+#dayDetailsContent .activity-item:last-child {
+    border-bottom: none;
+}
+
+#dayDetailsContent .activity-cost {
+    font-weight: bold;
+    color: #28a745;
+}
+
+#dayDetailsContent .total-cost {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 2px solid #2c5aa0;
+    font-weight: bold;
+    font-size: 1.1em;
+    text-align: right;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+}
+
+.conflict-warning {
+    margin-top: 8px;
+    padding: 8px;
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
     border-radius: 4px;
-    font-weight: 500;
+    font-size: 0.9em;
+    color: #856404;
 }
 
-.status-indicator {
-    font-size: 1.2rem;
+.btn--small {
+    padding: 4px 8px;
+    font-size: 0.8em;
+    margin-left: 8px;
 }
 
-.sync-status.connected .status-indicator {
-    color: #4CAF50;
+.btn--warning {
+    background: #ffc107;
+    color: #212529;
 }
-
-.sync-status.error .status-indicator {
-    color: #f44336;
-}
-
-.form-group {
-    margin-bottom: 1rem;
-}
-
-.form-group small {
-    display: block;
-    margin-top: 0.25rem;
-    color: #666;
-    font-size: 0.8rem;
-}
-
-.form-actions {
-    display: flex;
-    gap: 1rem;
-    margin-top: 1.5rem;
-}
-
-.sync-actions {
-    margin-top: 1.5rem;
-    padding-top: 1rem;
-    border-top: 1px solid #e0e0e0;
-}
-
-.sync-actions button {
-    margin-right: 0.5rem;
-    margin-bottom: 0.5rem;
-}
-
-.sync-info {
-    margin-top: 1rem;
-    color: #666;
-} */

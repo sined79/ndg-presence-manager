@@ -121,6 +121,7 @@ class SchoolAttendanceApp {
         this.currentDate = this.formatDate(new Date());
         this.currentTab = 'dashboard';
         this.pendingAction = null;
+        this.currentDetailDate = null;
         
         // School year limits
         this.schoolYearStart = new Date('2025-08-01');
@@ -141,9 +142,7 @@ class SchoolAttendanceApp {
         this.renderChildren();
         this.renderHistory();
         this.initPWA();
-        setTimeout(() => {
-            this.supabaseSync = new SupabaseSync(this);
-        }, 100);
+        this.supabaseSync = new SupabaseSync(this);
     }
 
     setupEventListeners() {
@@ -233,6 +232,30 @@ class SchoolAttendanceApp {
                 this.hideModal();
             });
         }
+
+        // Dans la méthode setupEventListeners(), ajoutez :
+
+        // Day details modal
+        const closeDayDetailsBtn = document.getElementById('closeDayDetailsBtn');
+        if (closeDayDetailsBtn) {
+            closeDayDetailsBtn.addEventListener('click', () => this.hideDayDetailsModal());
+        }
+
+        const deleteDayBtn = document.getElementById('deleteDayBtn');
+        if (deleteDayBtn) {
+            deleteDayBtn.addEventListener('click', () => this.deleteDayData());
+        }
+
+        // Modal close buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-close')) {
+                this.hideDayDetailsModal();
+            }
+            if (e.target === document.getElementById('dayDetailsModal')) {
+                this.hideDayDetailsModal();
+            }
+        });
+
     }
 
     loadData() {
@@ -824,58 +847,102 @@ class SchoolAttendanceApp {
         const containerEl = document.getElementById('calendarView');
         if (!containerEl) return;
         
+        // === DONNÉES DE BASE ===
         const [year, month] = monthKey.split('-');
-        const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+        const yearNum = parseInt(year);
+        const monthNum = parseInt(month);
         
-        const monthName = date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-        const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+        // Informations sur le mois
+        const firstDayDate = new Date(yearNum, monthNum - 1, 1);
+        const monthName = firstDayDate.toLocaleDateString('fr-FR', { 
+            month: 'long', 
+            year: 'numeric' 
+        });
+        const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
         
-        // Convertir getDay() pour que lundi = 0 au lieu de dimanche = 0
-        const firstDayOfWeekJS = new Date(parseInt(year), parseInt(month) - 1, 1).getDay();
-        const firstDayOfWeek = (firstDayOfWeekJS + 6) % 7; // 0=Lun, 1=Mar, ..., 6=Dim
+        // Calcul du décalage (conversion JS : 0=Dimanche vers 0=Lundi)
+        const firstDayOfWeekJS = firstDayDate.getDay();
+        const firstDayOfWeek = (firstDayOfWeekJS + 6) % 7;
         
+        // Configuration
+        const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
         const today = new Date();
         
-        // Ordre européen : Lundi en premier
-        const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+        // === FONCTIONS UTILITAIRES ===
         
-        let calendarHTML = `
-            <h4>Calendrier - ${monthName}</h4>
-            <div class="calendar-grid">
-                ${dayNames.map((day, index) => 
-                    `<div class="calendar-header ${index >= 5 ? 'weekend' : ''}">${day}</div>`
-                ).join('')}
-        `;
-
-        // Empty cells for days before the first day of the month
-        for (let i = 0; i < firstDayOfWeek; i++) {
-            const isWeekend = i >= 5; // Samedi (5) et Dimanche (6)
-            calendarHTML += `<div class="calendar-day ${isWeekend ? 'weekend' : ''}"></div>`;
-        }
-
-        // Days of the month
-        for (let day = 1; day <= daysInMonth; day++) {
+        // Génère l'en-tête avec les noms des jours
+        const buildCalendarHeader = () => {
+            return dayNames
+                .map((day, index) => {
+                    const weekendClass = index >= 5 ? 'weekend' : '';
+                    return `<div class="calendar-header ${weekendClass}">${day}</div>`;
+                })
+                .join('');
+        };
+        
+        // Génère les cellules vides avant le premier jour du mois
+        const buildEmptyCells = () => {
+            let html = '';
+            for (let i = 0; i < firstDayOfWeek; i++) {
+                const isWeekend = i >= 5;
+                html += `<div class="calendar-day ${isWeekend ? 'weekend' : ''}"></div>`;
+            }
+            return html;
+        };
+        
+        // Génère une cellule pour un jour donné
+        const buildDayCell = (day) => {
+            // Création de la clé de date
             const dateKey = `${year}-${month.padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-            const hasActivity = this.data.attendance[dateKey] && Object.keys(this.data.attendance[dateKey]).length > 0;
-            const isToday = today.toDateString() === new Date(parseInt(year), parseInt(month) - 1, day).toDateString();
+            
+            // Vérification des données d'activité
+            const dayData = this.data.attendance[dateKey];
+            const hasActivity = dayData && Object.keys(dayData).length > 0;
+            
+            // Classes CSS conditionnelles
+            const isToday = today.toDateString() === new Date(yearNum, monthNum - 1, day).toDateString();
+            const dayOfWeek = (firstDayOfWeek + day - 1) % 7;
+            const isWeekend = dayOfWeek >= 5;
+            
+            // Calcul du coût
             const dayCost = this.calculateDayCost(dateKey);
             
-            // Calculer le jour de la semaine pour ce jour (0=Lun, 1=Mar, ..., 6=Dim)
-            const dayOfWeek = (firstDayOfWeek + day - 1) % 7;
-            const isWeekend = dayOfWeek >= 5; // Samedi (5) et Dimanche (6)
+            // Construction des classes CSS
+            const cssClasses = [
+                'calendar-day',
+                hasActivity ? 'has-activity' : '',
+                isToday ? 'today' : '',
+                isWeekend ? 'weekend' : ''
+            ].filter(Boolean).join(' ');
             
-            calendarHTML += `
-                <div class="calendar-day ${hasActivity ? 'has-activity' : ''} ${isToday ? 'today' : ''} ${isWeekend ? 'weekend' : ''}" 
-                    onclick="app.showDayDetails('${dateKey}')">
+            return `
+                <div class="${cssClasses}" onclick="app.showDayDetails('${dateKey}')">
                     <div>${day}</div>
                     ${hasActivity ? `<small>${dayCost.toFixed(2)}€</small>` : ''}
                 </div>
             `;
+        };
+        
+        // === CONSTRUCTION DU CALENDRIER ===
+        
+        let calendarHTML = `
+            <h4>Calendrier - ${monthName}</h4>
+            <div class="calendar-grid">
+                ${buildCalendarHeader()}
+                ${buildEmptyCells()}
+        `;
+        
+        // Génération des jours du mois
+        for (let day = 1; day <= daysInMonth; day++) {
+            calendarHTML += buildDayCell(day);
         }
-
+        
         calendarHTML += '</div>';
+        
+        // Insertion dans le DOM
         containerEl.innerHTML = calendarHTML;
     }
+
 
 
 
@@ -911,27 +978,109 @@ class SchoolAttendanceApp {
 
     showDayDetails(dateKey) {
         const dayData = this.data.attendance[dateKey];
-        if (!dayData) {
-            this.showNotification('Aucune activité pour cette journée');
-            return;
-        }
+        if (!dayData) return;
 
-        let details = `Détails du ${new Date(dateKey).toLocaleDateString('fr-FR')}:\n\n`;
+        this.currentDetailDate = dateKey; // Stocker la date courante
         
-        Object.entries(dayData).forEach(([childId, activities]) => {
-            const child = this.data.children.find(c => c.id === childId);
-            if (child) {
-                details += `${child.name}:\n`;
-                Object.entries(activities).forEach(([time, activity]) => {
-                    const timeDisplay = time === 'repas_chaud' ? 'Repas chaud' : time;
-                    details += `  ${timeDisplay}: ${activity.type} (${activity.cost.toFixed(2)}€)\n`;
-                });
-                details += '\n';
-            }
+        const modal = document.getElementById('dayDetailsModal');
+        const title = document.getElementById('dayDetailsTitle');
+        const content = document.getElementById('dayDetailsContent');
+        
+        // Formater la date pour l'affichage
+        const date = new Date(dateKey);
+        const dateStr = date.toLocaleDateString('fr-FR', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
         });
-
-        alert(details);
+        
+        title.textContent = `Détail du ${dateStr}`;
+        
+        // Générer le contenu détaillé
+        let contentHTML = '';
+        let totalDay = 0;
+        
+        Object.entries(dayData).forEach(([childId, childData]) => {
+            const child = this.data.children.find(c => c.id === childId);
+            if (!child) return;
+            
+            let childTotal = 0;
+            let activitiesHTML = '';
+            
+            Object.entries(childData).forEach(([activityKey, activity]) => {
+                const cost = activity.cost || 0;
+                childTotal += cost;
+                
+                let activityName = activityKey;
+                if (activityKey === 'repas_chaud') {
+                    activityName = 'Repas chaud & dessert';
+                }
+                
+                activitiesHTML += `
+                    <div class="activity-item">
+                        <span>${activityName}</span>
+                        <span class="activity-cost">${cost.toFixed(2)}€</span>
+                    </div>
+                `;
+            });
+            
+            totalDay += childTotal;
+            
+            contentHTML += `
+                <div class="child-section">
+                    <div class="child-name">${child.name}</div>
+                    ${activitiesHTML}
+                    <div class="total-cost">Total: ${childTotal.toFixed(2)}€</div>
+                </div>
+            `;
+        });
+        
+        contentHTML += `
+            <div style="margin-top: 20px; padding: 15px; border-radius: 8px; text-align: center;">
+                <strong>Total de la journée : ${totalDay.toFixed(2)}€</strong>
+            </div>
+        `;
+        
+        content.innerHTML = contentHTML;
+        modal.style.display = 'flex';
     }
+
+    hideDayDetailsModal() {
+        const modal = document.getElementById('dayDetailsModal');
+        modal.style.display = 'none';
+        this.currentDetailDate = null;
+    }
+
+    deleteDayData() {
+        if (!this.currentDetailDate) return;
+        
+        const date = new Date(this.currentDetailDate);
+        const dateStr = date.toLocaleDateString('fr-FR');
+        
+        this.confirmAction(
+            'Supprimer les données du jour',
+            `Êtes-vous sûr de vouloir supprimer toutes les présences du ${dateStr} ?`,
+            () => {
+                // Supprimer les données
+                delete this.data.attendance[this.currentDetailDate];
+                
+                // Sauvegarder
+                this.saveData();
+                
+                // Fermer la modal
+                this.hideDayDetailsModal();
+                
+                // Rafraîchir l'affichage
+                this.renderHistory();
+                this.renderDashboard();
+                
+                // Notification
+                this.showNotification(`Données du ${dateStr} supprimées`, 'success');
+            }
+        );
+    }
+
 
     exportData() {
         const monthSelectEl = document.getElementById('monthSelect');
@@ -1106,6 +1255,9 @@ class SupabaseSync {
         this.loadConfiguration();
         this.setupEventListeners();
         this.updateUI();
+        if (this.isConfigured()) {
+            this.updateUI('connected');
+        }
     }
 
     setupEventListeners() {
@@ -1140,6 +1292,12 @@ class SupabaseSync {
         const key = localStorage.getItem('supabase_key');
         const fileName = localStorage.getItem('supabase_filename');
         
+        // Pré-remplir le champ fileName même si pas connecté
+        const fileNameInput = document.getElementById('fileName');
+        if (fileNameInput) {
+            fileNameInput.value = fileName || 'attendance-data.json';
+        }
+        
         if (url && key && window.supabase) {
             try {
                 this.supabase = window.supabase.createClient(url, key);
@@ -1148,19 +1306,16 @@ class SupabaseSync {
                     this.fileName = fileName;
                 }
                 
-                this.updateUI('connected');
+                // Ne pas appeler updateUI ici, on le fera dans init()
+                console.log('Configuration Supabase chargée avec succès');
+                
             } catch (error) {
                 console.error('Erreur de configuration Supabase:', error);
-                this.updateUI('error', 'Configuration invalide');
+                this.supabase = null; // S'assurer que c'est null en cas d'erreur
             }
         }
-        
-        // Pré-remplir le champ fileName
-        const fileNameInput = document.getElementById('fileName');
-        if (fileNameInput && fileName) {
-            fileNameInput.value = fileName;
-        }
     }
+
 
     validateApiKey(key) {
         const parts = key.split('.');
@@ -1358,7 +1513,7 @@ class SupabaseSync {
         }
     }
 
-    updateUI(status = 'disconnected', errorMessage = '') {
+    updateUI(status = null, errorMessage = '') {
         const statusEl = document.getElementById('syncStatus');
         const indicatorEl = document.getElementById('statusIndicator');
         const textEl = document.getElementById('statusText');
@@ -1367,6 +1522,15 @@ class SupabaseSync {
         const form = document.getElementById('syncConfigForm');
 
         if (!statusEl) return;
+
+        // Auto-détection du statut si non fourni
+        if (status === null) {
+            if (this.isConfigured()) {
+                status = 'connected';
+            } else {
+                status = 'disconnected';
+            }
+        }
 
         statusEl.className = 'sync-status';
 
@@ -1382,6 +1546,23 @@ class SupabaseSync {
                 if (form) form.style.display = 'none';
                 
                 this.updateLastBackupDisplay();
+
+                // Vérifier les conflits potentiels
+                this.checkForConflicts().then(result => {
+                    const conflictEl = document.getElementById('conflictWarning');
+                    const messageEl = document.getElementById('conflictMessage');
+                    
+                    if (result.hasConflict && conflictEl && messageEl) {
+                        console.log('Conflit détecté:', result);
+                        if (result.isCloudNewer) {
+                            messageEl.textContent = 'Une sauvegarde plus récente existe sur le cloud';
+                        } else {
+                            messageEl.textContent = 'Vos données locales sont plus récentes';
+                        }
+                        conflictEl.style.display = 'block';
+                    }
+                });
+                
                 break;
                 
             case 'error':
@@ -1395,7 +1576,7 @@ class SupabaseSync {
                 if (form) form.style.display = 'block';
                 break;
                 
-            default:
+            default: // 'disconnected'
                 indicatorEl.textContent = '⭕';
                 textEl.textContent = 'Non configuré';
                 textEl.className = 'status--info';
@@ -1406,17 +1587,160 @@ class SupabaseSync {
         }
     }
 
-    updateLastBackupDisplay() {
+
+    async updateLastBackupDisplay() {
         const lastBackupEl = document.getElementById('lastBackup');
-        if (lastBackupEl) {
-            const lastBackup = localStorage.getItem('last_backup');
-            lastBackupEl.textContent = lastBackup || 'Jamais';
+        if (!lastBackupEl) return;
+
+        if (!this.supabase) {
+            lastBackupEl.textContent = 'Non disponible';
+            return;
+        }
+
+        try {
+            // Récupérer la date depuis le cloud
+            const cloudDate = await this.getCloudFileDate();
+            
+            if (cloudDate) {
+                const dateStr = cloudDate.toLocaleString('fr-FR', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                lastBackupEl.textContent = dateStr;
+                
+                // Mettre à jour aussi le localStorage pour cohérence
+                localStorage.setItem('last_backup', dateStr);
+            } else {
+                // Fallback sur localStorage si pas trouvé dans le cloud
+                const localBackup = localStorage.getItem('last_backup');
+                lastBackupEl.textContent = localBackup || 'Jamais';
+            }
+        } catch (error) {
+            console.error('Erreur mise à jour date:', error);
+            // Fallback sur localStorage en cas d'erreur
+            const localBackup = localStorage.getItem('last_backup');
+            lastBackupEl.textContent = localBackup || 'Erreur';
         }
     }
+
 
     isConfigured() {
         return this.supabase !== null;
     }
+
+    async getCloudFileDate() {
+        if (!this.supabase) return null;
+
+        try {
+            // Liste les fichiers dans le bucket pour trouver celui avec notre fileName
+            const { data, error } = await this.supabase.storage
+                .from(this.bucketName)
+                .list('', {
+                    limit: 100,
+                    search: this.fileName
+                });
+
+            if (error) {
+                console.error('Erreur récupération fichiers:', error);
+                return null;
+            }
+
+            if (!data || data.length === 0) {
+                return null; // Fichier non trouvé
+            }
+
+            // Trouver notre fichier spécifique
+            const file = data.find(f => f.name === this.fileName);
+            if (!file) return null;
+
+            // Retourner la date de dernière modification
+            return file.updated_at ? new Date(file.updated_at) : null;
+
+        } catch (error) {
+            console.error('Erreur lors de la récupération de la date:', error);
+            return null;
+        }
+    }
+
+    async checkForConflicts() {
+        if (!this.supabase) return { hasConflict: false };
+
+        try {
+            const cloudDate = await this.getCloudFileDate();
+            const localBackupStr = localStorage.getItem('last_backup');
+            
+            if (!cloudDate || !localBackupStr) {
+                return { hasConflict: false };
+            }
+
+            // Conversion de la date française locale vers ISO
+            const localDateISO = this.parseFrenchDateToISO(localBackupStr);
+            if (!localDateISO) {
+                console.warn('Impossible de parser la date locale:', localBackupStr);
+                return { hasConflict: false };
+            }
+
+            const localDate = new Date(localDateISO);
+            const timeDiff = Math.abs(cloudDate.getTime() - localDate.getTime());
+            
+            // Si plus de 5 minutes de différence, potentiel conflit
+            console.log('Comparaison dates - Cloud:', cloudDate, 'Local:', localDate, 'Diff (ms):', timeDiff);
+            if (timeDiff > 5 * 60 * 1000) {
+                return {
+                    hasConflict: true,
+                    cloudDate: cloudDate,
+                    localDate: localDate,
+                    isCloudNewer: cloudDate > localDate
+                };
+            }
+            
+            return { hasConflict: false };
+            
+        } catch (error) {
+            console.error('Erreur vérification conflits:', error);
+            return { hasConflict: false };
+        }
+    }
+
+    parseFrenchDateToISO(frenchDateStr) {
+        try {
+            // Format attendu : "dd/mm/yyyy hh:mm" ou "dd/mm/yyyy à hh:mm"
+            const cleanStr = frenchDateStr.replace(' à ', ' ').trim();
+            const [datePart, timePart] = cleanStr.split(' ');
+            
+            if (!datePart || !timePart) {
+                console.warn('Format de date invalide:', frenchDateStr);
+                return null;
+            }
+            
+            const [day, month, year] = datePart.split('/');
+            if (!day || !month || !year) {
+                console.warn('Format de date invalide:', datePart);
+                return null;
+            }
+            
+            // Construction de la chaîne ISO : YYYY-MM-DDTHH:MM:SS
+            const isoString = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timePart}:00`;
+            
+            // Vérification que la date est valide
+            const testDate = new Date(isoString);
+            if (isNaN(testDate.getTime())) {
+                console.warn('Date ISO invalide:', isoString);
+                return null;
+            }
+            
+            return isoString;
+        } catch (error) {
+            console.error('Erreur parsing date française:', error);
+            return null;
+        }
+    }
+
+
 }
 
 

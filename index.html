@@ -312,7 +312,14 @@
                                 <small class="text-secondary">
                                     Dernière sauvegarde : <span id="lastBackup">Jamais</span>
                                 </small>
+                                <div id="conflictWarning" class="conflict-warning" style="display: none;">
+                                    ⚠️ <span id="conflictMessage"></span>
+                                    <button id="resolveConflictBtn" class="btn btn--small btn--warning">
+                                        Vérifier
+                                    </button>
+                                </div>
                             </div>
+
                         </div>
                     </div>
                 </div>
@@ -324,6 +331,27 @@
         <!-- Notifications -->
         <div class="notifications" id="notifications"></div>
 
+        <!-- Modal Day Details -->
+        <div class="modal hidden" id="dayDetailsModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="dayDetailsTitle">Détail de la journée</h3>
+                    <span class="modal-close">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div id="dayDetailsContent"></div>
+                    <div class="modal-actions">
+                        <button id="deleteDayBtn" class="btn btn--danger">
+                            🗑️ Supprimer cette journée
+                        </button>
+                        <button id="closeDayDetailsBtn" class="btn btn--secondary">
+                            Fermer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Confirmation Modal -->
         <div class="modal hidden" id="confirmModal">
             <div class="modal-content">
@@ -335,6 +363,7 @@
                 </div>
             </div>
         </div>
+
     </div>
 
     <script src="app.js"></script>
