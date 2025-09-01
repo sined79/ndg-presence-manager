@@ -1457,8 +1457,9 @@ class SupabaseSync {
 
             if (error) throw error;
 
-            const backupTime = new Date().toLocaleString('fr-FR');
-            localStorage.setItem('last_backup', backupTime);
+            const backupTime = new Date().toLocaleString('fr-FR');            
+            const backupTimeISO = new Date().toISOString();
+            localStorage.setItem('last_backup', backupTimeISO);
             
             this.updateLastBackupDisplay();
             this.app.showNotification(`Données sauvegardées dans ${this.fileName} !`, 'success');
@@ -1499,11 +1500,18 @@ class SupabaseSync {
             this.app.data.attendance = cloudData.attendance || {};
             
             this.app.saveData();
+
+            const cloudFileDate = await this.getCloudFileDate();
+            if (cloudFileDate) {
+                localStorage.setItem('last_backup', cloudFileDate.toISOString());
+            }
             
             this.app.renderChildren();
             this.app.renderAttendance();
             this.app.renderDashboard();
             this.app.renderHistory();
+
+            this.updateLastBackupDisplay();
             
             this.app.showNotification(`Données restaurées depuis ${this.fileName} !`, 'success');
             
@@ -1598,26 +1606,38 @@ class SupabaseSync {
         }
 
         try {
-            // Récupérer la date depuis le cloud
-            const cloudDate = await this.getCloudFileDate();
+            // Priorité 1 : Date locale (synchronisée lors des backup/restore)
+            const localBackup = localStorage.getItem('last_backup');
             
-            if (cloudDate) {
-                const dateStr = cloudDate.toLocaleString('fr-FR', {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
+            if (localBackup) {
+                // Si c'est déjà au format ISO, on l'utilise
+                let displayDate;
+                if (localBackup.includes('T') && localBackup.includes('Z')) {
+                    // Format ISO
+                    displayDate = new Date(localBackup);
+                } else {
+                    // Ancien format français, on essaie de le parser
+                    const isoString = this.parseFrenchDateToISO(localBackup);
+                    displayDate = isoString ? new Date(isoString) : null;
+                }
                 
-                lastBackupEl.textContent = dateStr;
-                
-                // Mettre à jour aussi le localStorage pour cohérence
-                localStorage.setItem('last_backup', dateStr);
+                if (displayDate && !isNaN(displayDate.getTime())) {
+                    const dateStr = displayDate.toLocaleString('fr-FR', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    lastBackupEl.innerHTML = `
+                        ${dateStr} 
+                        <small style="color: #666;">(sync)</small>
+                    `;
+                    return;
+                }
             } else {
-                // Fallback sur localStorage si pas trouvé dans le cloud
-                const localBackup = localStorage.getItem('last_backup');
-                lastBackupEl.textContent = localBackup || 'Jamais';
+                lastBackupEl.textContent = 'Jamais';
             }
         } catch (error) {
             console.error('Erreur mise à jour date:', error);
@@ -1677,14 +1697,7 @@ class SupabaseSync {
                 return { hasConflict: false };
             }
 
-            // Conversion de la date française locale vers ISO
-            const localDateISO = this.parseFrenchDateToISO(localBackupStr);
-            if (!localDateISO) {
-                console.warn('Impossible de parser la date locale:', localBackupStr);
-                return { hasConflict: false };
-            }
-
-            const localDate = new Date(localDateISO);
+            const localDate = new Date(localBackupStr);
             const timeDiff = Math.abs(cloudDate.getTime() - localDate.getTime());
             
             // Si plus de 5 minutes de différence, potentiel conflit
