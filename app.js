@@ -1500,7 +1500,10 @@ class SupabaseSync {
             this.app.data.children = cloudData.children || [];
             this.app.data.attendance = cloudData.attendance || {};
             
-            //this.app.saveData();
+            /**Synchro des données dans le localstorage et éviter de re-backup */
+            this.supabaseSync = false; 
+            this.app.saveData();
+            this.supabaseSync = true;
 
             const cloudFileDate = await this.getCloudFileDate();
             if (cloudFileDate) {
